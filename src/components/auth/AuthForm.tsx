@@ -1,21 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form';
 import { BsGithub, BsGoogle } from 'react-icons/bs';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 
 import Input from '@/components/inputs/Input';
 import Button from '@/components/Button';
 import AuthSocialButton from '@/components/auth/AuthSocialButton';
+import { useRouter } from 'next/navigation';
 
 type Variant = 'LOGIN' | 'REGISTER';
 
 export default function AuthForm() {
+	const session = useSession();
+	const router = useRouter();
 	const [variant, setVariant] = useState<Variant>('LOGIN');
 	const [isLoading, setIsLoading] = useState(false);
+
+	useEffect(() => {
+		if (session?.status === 'authenticated') {
+			router.push('/users');
+		}
+	}, [session?.status, router]);
 
 	const toggleVariant = () => {
 		if (variant === 'LOGIN') {
@@ -37,18 +46,14 @@ export default function AuthForm() {
 	});
 	const onSubmit: SubmitHandler<FieldValues> = (data) => {
 		if (variant === 'REGISTER') {
-			// axios register
-
 			setIsLoading(true);
 			axios
 				.post('/api/register', data)
 				.then((res) => {
-					console.log('res', res);
-					toast.success(res.data.message);
+					toast.success('Register success');
+					signIn('credentials', data);
 				})
-				.catch((err) => {
-					toast.error(err.message);
-				})
+				.catch((err) => toast.error(err.message))
 				.finally(() => {
 					setIsLoading(false);
 				});
@@ -66,6 +71,7 @@ export default function AuthForm() {
 					}
 					if (cb?.ok && !cb?.error) {
 						toast.success('Log in success');
+						router.push('/users');
 					}
 				})
 				.finally(() => setIsLoading(false));
@@ -75,6 +81,16 @@ export default function AuthForm() {
 	const socialAction = (action: string) => {
 		setIsLoading(true);
 		// Next auth social sign in
+		signIn(action, { redirect: false })
+			.then((cb) => {
+				if (cb?.error) {
+					toast.error(cb.error);
+				}
+				if (cb?.ok && !cb?.error) {
+					toast.success('Log in success');
+				}
+			})
+			.finally(() => setIsLoading(false));
 	};
 
 	return (
